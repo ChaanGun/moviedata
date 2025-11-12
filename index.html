@@ -380,14 +380,49 @@
         searchInfo.style.display = 'none';
         isSearchMode = true;
         
-        const searchURL = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&language=en-US&query=${encodeURIComponent(query)}&page=1`;
-        const res = await fetch(searchURL);
-        const data = await res.json();
+        // Check if searching by director (e.g., "movie by Christopher Nolan" or "by Spielberg")
+        const byDirectorMatch = query.match(/by\s+(.+)/i);
+        let searchResults = [];
         
-        searchInfo.style.display = 'block';
-        searchInfo.textContent = `🔍 Found ${data.total_results} results for "${query}" in the entire database`;
+        if (byDirectorMatch) {
+          // Search for director
+          const directorName = byDirectorMatch[1].trim();
+          const personSearchURL = `https://api.themoviedb.org/3/search/person?api_key=${apiKey}&language=en-US&query=${encodeURIComponent(directorName)}&page=1`;
+          const personRes = await fetch(personSearchURL);
+          const personData = await personRes.json();
+          
+          if (personData.results.length > 0) {
+            // Get the first matching person (usually most popular)
+            const director = personData.results[0];
+            
+            // Get movies by this director
+            const creditsURL = `https://api.themoviedb.org/3/person/${director.id}/movie_credits?api_key=${apiKey}&language=en-US`;
+            const creditsRes = await fetch(creditsURL);
+            const creditsData = await creditsRes.json();
+            
+            // Filter only directing credits
+            searchResults = creditsData.crew.filter(movie => movie.job === 'Director');
+            
+            searchInfo.style.display = 'block';
+            searchInfo.textContent = `🎬 Found ${searchResults.length} movies directed by ${director.name}`;
+          } else {
+            loadingDiv.style.display = 'none';
+            movieContainer.innerHTML = '<div class="no-results">No director found with that name</div>';
+            return;
+          }
+        } else {
+          // Regular movie title search
+          const searchURL = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&language=en-US&query=${encodeURIComponent(query)}&page=1`;
+          const res = await fetch(searchURL);
+          const data = await res.json();
+          
+          searchResults = data.results;
+          
+          searchInfo.style.display = 'block';
+          searchInfo.textContent = `🔍 Found ${data.total_results} results for "${query}" in the entire database`;
+        }
         
-        if (data.results.length === 0) {
+        if (searchResults.length === 0) {
           loadingDiv.style.display = 'none';
           movieContainer.innerHTML = '<div class="no-results">No movies found in the database</div>';
           return;
@@ -465,7 +500,7 @@
         return;
       }
 
-      movies.forEach(movie => {
+      movies.forEach((movie, index) => {
         const movieCard = document.createElement('div');
         movieCard.classList.add('movie');
         movieCard.innerHTML = `
@@ -489,6 +524,40 @@
             </div>
           </div>
         `;
+        
+        // Add click event to log individual movie data
+        movieCard.addEventListener('click', () => {
+          console.log('\n=== 🎬 CLICKED MOVIE DATA ===');
+          console.log(JSON.stringify(movie, null, 4));
+          console.log('\n=== COPY-PASTE READY ===');
+          console.log(`{
+    id: ,
+    title: "${movie.title}",
+    year: ${movie.year},
+    duration: "${movie.duration}",
+    rating: "${movie.rating}",
+    genre: "${movie.genre}",
+    language: "${movie.language}",
+    imdb: "${movie.imdb}",
+    subtitles: ${movie.subtitles},
+    poster: "${movie.poster}",
+    youtubeId: "",
+    description: "${movie.description.replace(/"/g, '\\"')}",
+    director: "${movie.director}",
+    actors: "${movie.actors}"
+},`);
+          
+          // Visual feedback
+          movieCard.style.borderColor = '#4ecdc4';
+          movieCard.style.boxShadow = '0 0 20px rgba(78, 205, 196, 0.6)';
+          setTimeout(() => {
+            movieCard.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            movieCard.style.boxShadow = 'none';
+          }, 1000);
+          
+          alert(`✅ Movie data for "${movie.title}" has been logged to the console!\n\nPress F12 to open Developer Tools and see the formatted JavaScript object.`);
+        });
+        
         movieContainer.appendChild(movieCard);
       });
     }
