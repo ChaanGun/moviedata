@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎬 Movie Database</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      text-align: center;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .controls {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 20px;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 300px;
+      max-width: 500px;
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 12px 20px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 25px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    .search-box input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .search-box input:focus {
+      border-color: #4ecdc4;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 0.9rem;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .btn.active {
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 50px;
+      font-size: 1.5rem;
+    }
+
+    .movies {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 30px;
+      padding: 30px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .movie {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 15px;
+      overflow: hidden;
+      transition: all 0.3s;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .movie:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border-color: #4ecdc4;
+    }
+
+    .movie-poster {
+      width: 100%;
+      height: 400px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .movie-info {
+      padding: 20px;
+    }
+
+    .movie-title {
+      font-size: 1.3rem;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .movie-meta {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .movie-meta span {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 10px;
+    }
+
+    .rating {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 215, 0, 0.2);
+      padding: 4px 10px;
+      border-radius: 10px;
+      color: #ffd700;
+    }
+
+    .movie-description {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 10px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .movie-credits {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .movie-credits div {
+      margin-bottom: 5px;
+    }
+
+    .movie-credits strong {
+      color: #4ecdc4;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 50px;
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.8rem;
+      }
+      
+      .movies {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+        padding: 20px;
+      }
+
+      .movie-poster {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎬 Movie Database</h1>
+    <div class="controls">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 Search movies..." />
+      </div>
+      <div class="filter-buttons">
+        <button class="btn active" data-category="popular">Popular</button>
+        <button class="btn" data-category="top_rated">Top Rated</button>
+        <button class="btn" data-category="upcoming">Upcoming</button>
+        <button class="btn" data-category="now_playing">Now Playing</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading" class="loading">Loading movies...</div>
+  <div class="movies" id="movies"></div>
+
+  <script>
+    const apiKey = ''; // Add your TMDb API key here
+    let currentCategory = 'popular';
+    let allMovies = [];
+
+    const movieContainer = document.getElementById('movies');
+    const loadingDiv = document.getElementById('loading');
+    const searchInput = document.getElementById('searchInput');
+    const categoryBtns = document.querySelectorAll('[data-category]');
+
+    // Fetch movies from TMDb
+    async function fetchMovies(category = 'popular') {
+      try {
+        loadingDiv.style.display = 'block';
+        movieContainer.innerHTML = '';
+        
+        const apiURL = `https://api.themoviedb.org/3/movie/${category}?api_key=${apiKey}&language=en-US&page=1`;
+        const res = await fetch(apiURL);
+        const data = await res.json();
+        
+        // Fetch detailed info for each movie (to get cast and crew)
+        const moviesWithDetails = await Promise.all(
+          data.results.map(async (movie) => {
+            const detailsRes = await fetch(
+              `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${apiKey}&append_to_response=credits`
+            );
+            const details = await detailsRes.json();
+            return details;
+          })
+        );
+        
+        allMovies = moviesWithDetails.map(movie => ({
+          id: '', // Leave blank as requested
+          title: movie.title,
+          year: movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A',
+          duration: movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : 'N/A',
+          rating: movie.adult ? 'R' : 'PG-13',
+          genre: movie.genres.map(g => g.name).join(', '),
+          language: movie.original_language.toUpperCase(),
+          imdb: movie.vote_average.toFixed(1),
+          subtitles: movie.original_language !== 'en',
+          poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'placeholder.png',
+          youtubeId: '', // Leave blank as requested
+          description: movie.overview,
+          director: movie.credits.crew.find(person => person.job === 'Director')?.name || 'N/A',
+          actors: movie.credits.cast.slice(0, 5).map(actor => actor.name).join(', ')
+        }));
+        
+        // Log the formatted output to console
+        console.log('=== MOVIE DATA IN YOUR FORMAT ===');
+        console.log(JSON.stringify(allMovies, null, 4));
+        console.log('\n=== COPY-PASTE READY ===');
+        allMovies.forEach(movie => {
+          console.log(`{
+    id: ,
+    title: "${movie.title}",
+    year: ${movie.year},
+    duration: "${movie.duration}",
+    rating: "${movie.rating}",
+    genre: "${movie.genre}",
+    language: "${movie.language}",
+    imdb: "${movie.imdb}",
+    subtitles: ${movie.subtitles},
+    poster: "${movie.poster}",
+    youtubeId: "",
+    description: "${movie.description.replace(/"/g, '\\"')}",
+    director: "${movie.director}",
+    actors: "${movie.actors}"
+},`);
+        });
+        
+        displayMovies(allMovies);
+        loadingDiv.style.display = 'none';
+      } catch (error) {
+        console.error('Error fetching movies:', error);
+        loadingDiv.innerHTML = '❌ Error loading movies. Please check your API key.';
+      }
+    }
+
+    // Display movies
+    function displayMovies(movies) {
+      movieContainer.innerHTML = '';
+      
+      if (movies.length === 0) {
+        movieContainer.innerHTML = '<div class="no-results">No movies found</div>';
+        return;
+      }
+
+      movies.forEach(movie => {
+        const movieCard = document.createElement('div');
+        movieCard.classList.add('movie');
+        movieCard.innerHTML = `
+          <img src="${movie.poster}" alt="${movie.title}" class="movie-poster" />
+          <div class="movie-info">
+            <div class="movie-title">${movie.title}</div>
+            <div class="movie-meta">
+              <span>${movie.year}</span>
+              <span>${movie.duration}</span>
+              <span>${movie.rating}</span>
+              <span class="rating">⭐ ${movie.imdb}</span>
+            </div>
+            <div class="movie-meta">
+              <span>${movie.genre}</span>
+              <span>${movie.language}</span>
+            </div>
+            <div class="movie-description">${movie.description}</div>
+            <div class="movie-credits">
+              <div><strong>Director:</strong> ${movie.director}</div>
+              <div><strong>Actors:</strong> ${movie.actors}</div>
+            </div>
+          </div>
+        `;
+        movieContainer.appendChild(movieCard);
+      });
+    }
+
+    // Search functionality
+    searchInput.addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      const filtered = allMovies.filter(movie => 
+        movie.title.toLowerCase().includes(searchTerm) ||
+        movie.genre.toLowerCase().includes(searchTerm) ||
+        movie.actors.toLowerCase().includes(searchTerm) ||
+        movie.director.toLowerCase().includes(searchTerm)
+      );
+      displayMovies(filtered);
+    });
+
+    // Category switching
+    categoryBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        categoryBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentCategory = btn.dataset.category;
+        searchInput.value = '';
+        fetchMovies(currentCategory);
+      });
+    });
+
+    // Initial load
+    if (apiKey) {
+      fetchMovies(currentCategory);
+    } else {
+      loadingDiv.innerHTML = '⚠️ Please add your TMDb API key to the script';
+    }
+  </script>
+</body>
+</html>
