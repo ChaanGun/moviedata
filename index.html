@@ -72,6 +72,26 @@
       background: rgba(255, 255, 255, 0.15);
     }
 
+    .search-database-btn {
+      position: absolute;
+      right: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 8px 16px;
+      border: none;
+      border-radius: 20px;
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.3s;
+    }
+
+    .search-database-btn:hover {
+      transform: translateY(-50%) scale(1.05);
+      box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
+    }
+
     .filter-buttons {
       display: flex;
       gap: 10px;
@@ -102,6 +122,16 @@
       text-align: center;
       padding: 50px;
       font-size: 1.5rem;
+    }
+
+    .search-info {
+      text-align: center;
+      padding: 10px;
+      background: rgba(78, 205, 196, 0.2);
+      margin: 20px auto;
+      max-width: 800px;
+      border-radius: 10px;
+      font-size: 0.9rem;
     }
 
     .movies {
@@ -218,6 +248,17 @@
       .movie-poster {
         height: 300px;
       }
+
+      .search-database-btn {
+        position: static;
+        transform: none;
+        width: 100%;
+        margin-top: 10px;
+      }
+
+      .search-database-btn:hover {
+        transform: scale(1.05);
+      }
     }
   </style>
 </head>
@@ -227,6 +268,7 @@
     <div class="controls">
       <div class="search-box">
         <input type="text" id="searchInput" placeholder="🔍 Search movies..." />
+        <button class="search-database-btn" id="searchDatabaseBtn">Search Database</button>
       </div>
       <div class="filter-buttons">
         <button class="btn active" data-category="popular">Popular</button>
@@ -237,17 +279,21 @@
     </div>
   </div>
 
+  <div id="searchInfo" class="search-info" style="display: none;"></div>
   <div id="loading" class="loading">Loading movies...</div>
   <div class="movies" id="movies"></div>
 
   <script>
-    const apiKey = '0af72bb91d37a3dcb9147b053fbc7a5c'; // Add your TMDb API key here
+    const apiKey = '0af72bb91d37a3dcb9147b053fbc7a5c';
     let currentCategory = 'popular';
     let allMovies = [];
+    let isSearchMode = false;
 
     const movieContainer = document.getElementById('movies');
     const loadingDiv = document.getElementById('loading');
     const searchInput = document.getElementById('searchInput');
+    const searchDatabaseBtn = document.getElementById('searchDatabaseBtn');
+    const searchInfo = document.getElementById('searchInfo');
     const categoryBtns = document.querySelectorAll('[data-category]');
 
     // Fetch movies from TMDb
@@ -255,6 +301,8 @@
       try {
         loadingDiv.style.display = 'block';
         movieContainer.innerHTML = '';
+        searchInfo.style.display = 'none';
+        isSearchMode = false;
         
         const apiURL = `https://api.themoviedb.org/3/movie/${category}?api_key=${apiKey}&language=en-US&page=1`;
         const res = await fetch(apiURL);
@@ -272,7 +320,7 @@
         );
         
         allMovies = moviesWithDetails.map(movie => ({
-          id: '', // Leave blank as requested
+          id: '',
           title: movie.title,
           year: movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A',
           duration: movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : 'N/A',
@@ -282,7 +330,7 @@
           imdb: movie.vote_average.toFixed(1),
           subtitles: movie.original_language !== 'en',
           poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'placeholder.png',
-          youtubeId: '', // Leave blank as requested
+          youtubeId: '',
           description: movie.overview,
           director: movie.credits.crew.find(person => person.job === 'Director')?.name || 'N/A',
           actors: movie.credits.cast.slice(0, 5).map(actor => actor.name).join(', ')
@@ -319,6 +367,95 @@
       }
     }
 
+    // Search entire TMDb database
+    async function searchDatabase(query) {
+      if (!query.trim()) {
+        alert('Please enter a search term');
+        return;
+      }
+
+      try {
+        loadingDiv.style.display = 'block';
+        movieContainer.innerHTML = '';
+        searchInfo.style.display = 'none';
+        isSearchMode = true;
+        
+        const searchURL = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&language=en-US&query=${encodeURIComponent(query)}&page=1`;
+        const res = await fetch(searchURL);
+        const data = await res.json();
+        
+        searchInfo.style.display = 'block';
+        searchInfo.textContent = `🔍 Found ${data.total_results} results for "${query}" in the entire database`;
+        
+        if (data.results.length === 0) {
+          loadingDiv.style.display = 'none';
+          movieContainer.innerHTML = '<div class="no-results">No movies found in the database</div>';
+          return;
+        }
+        
+        // Fetch detailed info for each movie
+        const moviesWithDetails = await Promise.all(
+          data.results.slice(0, 20).map(async (movie) => {
+            try {
+              const detailsRes = await fetch(
+                `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${apiKey}&append_to_response=credits`
+              );
+              const details = await detailsRes.json();
+              return details;
+            } catch (error) {
+              return null;
+            }
+          })
+        );
+        
+        allMovies = moviesWithDetails.filter(m => m !== null).map(movie => ({
+          id: '',
+          title: movie.title,
+          year: movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A',
+          duration: movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : 'N/A',
+          rating: movie.adult ? 'R' : 'PG-13',
+          genre: movie.genres ? movie.genres.map(g => g.name).join(', ') : 'N/A',
+          language: movie.original_language ? movie.original_language.toUpperCase() : 'N/A',
+          imdb: movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A',
+          subtitles: movie.original_language !== 'en',
+          poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'placeholder.png',
+          youtubeId: '',
+          description: movie.overview || 'No description available',
+          director: movie.credits?.crew.find(person => person.job === 'Director')?.name || 'N/A',
+          actors: movie.credits?.cast ? movie.credits.cast.slice(0, 5).map(actor => actor.name).join(', ') : 'N/A'
+        }));
+        
+        // Log the formatted output to console
+        console.log('=== DATABASE SEARCH RESULTS ===');
+        console.log(JSON.stringify(allMovies, null, 4));
+        console.log('\n=== COPY-PASTE READY ===');
+        allMovies.forEach(movie => {
+          console.log(`{
+    id: ,
+    title: "${movie.title}",
+    year: ${movie.year},
+    duration: "${movie.duration}",
+    rating: "${movie.rating}",
+    genre: "${movie.genre}",
+    language: "${movie.language}",
+    imdb: "${movie.imdb}",
+    subtitles: ${movie.subtitles},
+    poster: "${movie.poster}",
+    youtubeId: "",
+    description: "${movie.description.replace(/"/g, '\\"')}",
+    director: "${movie.director}",
+    actors: "${movie.actors}"
+},`);
+        });
+        
+        displayMovies(allMovies);
+        loadingDiv.style.display = 'none';
+      } catch (error) {
+        console.error('Error searching database:', error);
+        loadingDiv.innerHTML = '❌ Error searching database.';
+      }
+    }
+
     // Display movies
     function displayMovies(movies) {
       movieContainer.innerHTML = '';
@@ -332,7 +469,7 @@
         const movieCard = document.createElement('div');
         movieCard.classList.add('movie');
         movieCard.innerHTML = `
-          <img src="${movie.poster}" alt="${movie.title}" class="movie-poster" />
+          <img src="${movie.poster}" alt="${movie.title}" class="movie-poster" onerror="this.src='https://via.placeholder.com/500x750?text=No+Poster'" />
           <div class="movie-info">
             <div class="movie-title">${movie.title}</div>
             <div class="movie-meta">
@@ -356,8 +493,10 @@
       });
     }
 
-    // Search functionality
+    // Local search functionality (filters current results)
     searchInput.addEventListener('input', (e) => {
+      if (isSearchMode) return; // Don't filter when in database search mode
+      
       const searchTerm = e.target.value.toLowerCase();
       const filtered = allMovies.filter(movie => 
         movie.title.toLowerCase().includes(searchTerm) ||
@@ -366,6 +505,24 @@
         movie.director.toLowerCase().includes(searchTerm)
       );
       displayMovies(filtered);
+    });
+
+    // Database search button
+    searchDatabaseBtn.addEventListener('click', () => {
+      const query = searchInput.value.trim();
+      if (query) {
+        searchDatabase(query);
+      }
+    });
+
+    // Enter key to search database
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const query = searchInput.value.trim();
+        if (query) {
+          searchDatabase(query);
+        }
+      }
     });
 
     // Category switching
