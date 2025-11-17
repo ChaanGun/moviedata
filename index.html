@@ -73,29 +73,40 @@
     }
 
     .search-database-btn {
-      position: absolute;
-      right: 5px;
-      top: 50%;
-      transform: translateY(-50%);
-      padding: 8px 16px;
+      padding: 10px 20px;
       border: none;
       border-radius: 20px;
       background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
       color: #fff;
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       transition: all 0.3s;
     }
 
     .search-database-btn:hover {
-      transform: translateY(-50%) scale(1.05);
+      transform: scale(1.05);
       box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
+    }
+
+    .filter-section {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto 20px;
+      padding: 0 20px;
+    }
+
+    .filter-label {
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 10px;
+      display: block;
     }
 
     .filter-buttons {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+      justify-content: center;
     }
 
     .btn {
@@ -248,17 +259,6 @@
       .movie-poster {
         height: 300px;
       }
-
-      .search-database-btn {
-        position: static;
-        transform: none;
-        width: 100%;
-        margin-top: 10px;
-      }
-
-      .search-database-btn:hover {
-        transform: scale(1.05);
-      }
     }
   </style>
 </head>
@@ -269,16 +269,33 @@
       <div class="search-box">
         <input type="text" id="searchInput" placeholder="🔍 Search movie title..." />
       </div>
-      <div class="search-box">
-        <input type="text" id="languageInput" placeholder="🌍 Language (e.g., Telugu, Malayalam, Tamil)..." />
-        <button class="search-database-btn" id="searchDatabaseBtn">Search Database</button>
-      </div>
-      <div class="filter-buttons">
-        <button class="btn active" data-category="popular">Popular</button>
-        <button class="btn" data-category="top_rated">Top Rated</button>
-        <button class="btn" data-category="upcoming">Upcoming</button>
-        <button class="btn" data-category="now_playing">Now Playing</button>
-      </div>
+      <button class="search-database-btn" id="searchDatabaseBtn">Search Database</button>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-label">🎭 Category:</div>
+    <div class="filter-buttons">
+      <button class="btn active" data-category="popular">Popular</button>
+      <button class="btn" data-category="top_rated">Top Rated</button>
+      <button class="btn" data-category="upcoming">Upcoming</button>
+      <button class="btn" data-category="now_playing">Now Playing</button>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-label">🌍 Language:</div>
+    <div class="filter-buttons">
+      <button class="btn active" data-language="">All Languages</button>
+      <button class="btn" data-language="en">English</button>
+      <button class="btn" data-language="hi">Hindi</button>
+      <button class="btn" data-language="te">Telugu</button>
+      <button class="btn" data-language="ml">Malayalam</button>
+      <button class="btn" data-language="ta">Tamil</button>
+      <button class="btn" data-language="ko">Korean</button>
+      <button class="btn" data-language="es">Spanish</button>
+      <button class="btn" data-language="tl">Filipino</button>
+      <button class="btn" data-language="id">Indonesian</button>
     </div>
   </div>
 
@@ -289,141 +306,108 @@
   <script>
     const apiKey = '0af72bb91d37a3dcb9147b053fbc7a5c';
     let currentCategory = 'popular';
+    let currentLanguage = '';
     let allMovies = [];
     let isSearchMode = false;
 
     const movieContainer = document.getElementById('movies');
     const loadingDiv = document.getElementById('loading');
     const searchInput = document.getElementById('searchInput');
-    const languageInput = document.getElementById('languageInput');
     const searchDatabaseBtn = document.getElementById('searchDatabaseBtn');
     const searchInfo = document.getElementById('searchInfo');
     const categoryBtns = document.querySelectorAll('[data-category]');
+    const languageBtns = document.querySelectorAll('[data-language]');
 
-    // Language code mapping for common languages
-    const languageMap = {
-      'telugu': 'te',
-      'malayalam': 'ml',
-      'tamil': 'ta',
-      'hindi': 'hi',
-      'kannada': 'kn',
-      'bengali': 'bn',
-      'marathi': 'mr',
-      'gujarati': 'gu',
-      'punjabi': 'pa',
-      'urdu': 'ur',
-      'english': 'en',
-      'spanish': 'es',
-      'french': 'fr',
-      'german': 'de',
-      'italian': 'it',
-      'japanese': 'ja',
-      'korean': 'ko',
-      'chinese': 'zh',
-      'portuguese': 'pt',
-      'russian': 'ru',
-      'arabic': 'ar',
-      'turkish': 'tr',
-      'thai': 'th',
-      'vietnamese': 'vi',
-      'indonesian': 'id',
-      'malay': 'ms',
-      'persian': 'fa',
-      'polish': 'pl',
-      'dutch': 'nl',
-      'swedish': 'sv',
-      'norwegian': 'no',
-      'danish': 'da',
-      'finnish': 'fi'
-    };
-
-    // Function to get language code from input
-    function getLanguageCode(input) {
-      if (!input) return '';
-      const normalized = input.toLowerCase().trim();
-      // Check if it's already a 2-letter code
-      if (normalized.length === 2) return normalized;
-      // Check if it's in our language map
-      return languageMap[normalized] || '';
-    }
-
-    // Fetch movies from TMDb
-    async function fetchMovies(category = 'popular') {
+    // Discover movies by language and category
+    async function discoverMovies(category = 'popular', language = '') {
       try {
         loadingDiv.style.display = 'block';
         movieContainer.innerHTML = '';
         searchInfo.style.display = 'none';
         isSearchMode = false;
         
-        const apiURL = `https://api.themoviedb.org/3/movie/${category}?api_key=${apiKey}&language=en-US&page=1`;
+        let apiURL;
+        
+        if (language) {
+          // Use discover endpoint for language filtering
+          const sortBy = category === 'popular' ? 'popularity.desc' : 
+                        category === 'top_rated' ? 'vote_average.desc' : 
+                        category === 'upcoming' ? 'release_date.desc' : 
+                        'primary_release_date.desc';
+          
+          apiURL = `https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}&language=en-US&sort_by=${sortBy}&with_original_language=${language}&page=1&vote_count.gte=10`;
+          
+          if (category === 'upcoming') {
+            const today = new Date().toISOString().split('T')[0];
+            apiURL += `&primary_release_date.gte=${today}`;
+          } else if (category === 'now_playing') {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.setDate(today.getDate() - 30)).toISOString().split('T')[0];
+            const futureDate = new Date().toISOString().split('T')[0];
+            apiURL += `&primary_release_date.gte=${thirtyDaysAgo}&primary_release_date.lte=${futureDate}`;
+          }
+        } else {
+          // Use regular movie endpoint
+          apiURL = `https://api.themoviedb.org/3/movie/${category}?api_key=${apiKey}&language=en-US&page=1`;
+        }
+        
         const res = await fetch(apiURL);
         const data = await res.json();
         
+        if (!data.results || data.results.length === 0) {
+          loadingDiv.style.display = 'none';
+          movieContainer.innerHTML = '<div class="no-results">No movies found for this combination</div>';
+          return;
+        }
+        
         // Fetch detailed info for each movie (to get cast and crew)
         const moviesWithDetails = await Promise.all(
-          data.results.map(async (movie) => {
-            const detailsRes = await fetch(
-              `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${apiKey}&append_to_response=credits`
-            );
-            const details = await detailsRes.json();
-            return details;
+          data.results.slice(0, 20).map(async (movie) => {
+            try {
+              const detailsRes = await fetch(
+                `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${apiKey}&append_to_response=credits`
+              );
+              const details = await detailsRes.json();
+              return details;
+            } catch (error) {
+              return null;
+            }
           })
         );
         
-        allMovies = moviesWithDetails.map(movie => ({
+        allMovies = moviesWithDetails.filter(m => m !== null).map(movie => ({
           id: '',
           title: movie.title,
           year: movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A',
           duration: movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : 'N/A',
           rating: movie.adult ? 'R' : 'PG-13',
-          genre: movie.genres.map(g => g.name).join(', '),
-          language: movie.original_language.toUpperCase(),
-          imdb: movie.vote_average.toFixed(1),
+          genre: movie.genres ? movie.genres.map(g => g.name).join(', ') : 'N/A',
+          language: movie.original_language ? movie.original_language.toUpperCase() : 'N/A',
+          imdb: movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A',
           subtitles: movie.original_language !== 'en',
           poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'placeholder.png',
           youtubeId: '',
-          description: movie.overview,
-          director: movie.credits.crew.find(person => person.job === 'Director')?.name || 'N/A',
-          actors: movie.credits.cast.slice(0, 5).map(actor => actor.name).join(', ')
+          description: movie.overview || 'No description available',
+          director: movie.credits?.crew.find(person => person.job === 'Director')?.name || 'N/A',
+          actors: movie.credits?.cast ? movie.credits.cast.slice(0, 5).map(actor => actor.name).join(', ') : 'N/A'
         }));
         
         // Log the formatted output to console
-        console.log('=== MOVIE DATA IN YOUR FORMAT ===');
+        console.log('=== MOVIE DATA ===');
         console.log(JSON.stringify(allMovies, null, 4));
-        console.log('\n=== COPY-PASTE READY ===');
-        allMovies.forEach(movie => {
-          console.log(`{
-    id: ,
-    title: "${movie.title}",
-    year: ${movie.year},
-    duration: "${movie.duration}",
-    rating: "${movie.rating}",
-    genre: "${movie.genre}",
-    language: "${movie.language}",
-    imdb: "${movie.imdb}",
-    subtitles: ${movie.subtitles},
-    poster: "${movie.poster}",
-    youtubeId: "",
-    description: "${movie.description.replace(/"/g, '\\"')}",
-    director: "${movie.director}",
-    actors: "${movie.actors}"
-},`);
-        });
         
         displayMovies(allMovies);
         loadingDiv.style.display = 'none';
       } catch (error) {
         console.error('Error fetching movies:', error);
-        loadingDiv.innerHTML = '❌ Error loading movies. Please check your API key.';
+        loadingDiv.innerHTML = '❌ Error loading movies. Please try again.';
       }
     }
 
     // Search entire TMDb database
-    async function searchDatabase(query) {
-      const languageQuery = languageInput.value.trim();
-      
-      if (!query.trim() && !languageQuery) {
-        alert('Please enter a movie title or language to search');
+    async function searchDatabase(query, language = '') {
+      if (!query.trim()) {
+        alert('Please enter a movie title to search');
         return;
       }
 
@@ -433,37 +417,23 @@
         searchInfo.style.display = 'none';
         isSearchMode = true;
         
-        let searchURL = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&language=en-US&page=1`;
+        let searchURL = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&language=en-US&query=${encodeURIComponent(query)}&page=1`;
         
-        // Add movie title query if provided
-        if (query.trim()) {
-          searchURL += `&query=${encodeURIComponent(query)}`;
-        }
-        
-        // Add language filter if provided
-        const languageCode = getLanguageCode(languageQuery);
-        if (languageCode) {
-          searchURL += `&with_original_language=${languageCode}`;
+        // Add language filter if selected
+        if (language) {
+          searchURL += `&with_original_language=${language}`;
         }
         
         const res = await fetch(searchURL);
         const data = await res.json();
         
-        let searchDescription = '';
-        if (query.trim() && languageQuery) {
-          searchDescription = `"${query}" in ${languageQuery}`;
-        } else if (query.trim()) {
-          searchDescription = `"${query}"`;
-        } else if (languageQuery) {
-          searchDescription = `movies in ${languageQuery}`;
-        }
-        
+        const languageName = language ? languageBtns[Array.from(languageBtns).findIndex(btn => btn.dataset.language === language)].textContent : 'All Languages';
         searchInfo.style.display = 'block';
-        searchInfo.textContent = `🔍 Found ${data.total_results} results for ${searchDescription}`;
+        searchInfo.textContent = `🔍 Found ${data.total_results} results for "${query}" in ${languageName}`;
         
         if (data.results.length === 0) {
           loadingDiv.style.display = 'none';
-          movieContainer.innerHTML = `<div class="no-results">No movies found${languageCode ? '. Try entering the language name in English (e.g., Telugu, Malayalam, Tamil)' : ''}</div>`;
+          movieContainer.innerHTML = '<div class="no-results">No movies found</div>';
           return;
         }
         
@@ -500,27 +470,8 @@
         }));
         
         // Log the formatted output to console
-        console.log('=== DATABASE SEARCH RESULTS ===');
+        console.log('=== SEARCH RESULTS ===');
         console.log(JSON.stringify(allMovies, null, 4));
-        console.log('\n=== COPY-PASTE READY ===');
-        allMovies.forEach(movie => {
-          console.log(`{
-    id: ,
-    title: "${movie.title}",
-    year: ${movie.year},
-    duration: "${movie.duration}",
-    rating: "${movie.rating}",
-    genre: "${movie.genre}",
-    language: "${movie.language}",
-    imdb: "${movie.imdb}",
-    subtitles: ${movie.subtitles},
-    poster: "${movie.poster}",
-    youtubeId: "",
-    description: "${movie.description.replace(/"/g, '\\"')}",
-    director: "${movie.director}",
-    actors: "${movie.actors}"
-},`);
-        });
         
         displayMovies(allMovies);
         loadingDiv.style.display = 'none';
@@ -601,38 +552,21 @@
       });
     }
 
-    // Local search functionality (filters current results)
-    searchInput.addEventListener('input', (e) => {
-      if (isSearchMode) return; // Don't filter when in database search mode
-      
-      const searchTerm = e.target.value.toLowerCase();
-      const filtered = allMovies.filter(movie => 
-        movie.title.toLowerCase().includes(searchTerm) ||
-        movie.genre.toLowerCase().includes(searchTerm) ||
-        movie.actors.toLowerCase().includes(searchTerm) ||
-        movie.director.toLowerCase().includes(searchTerm)
-      );
-      displayMovies(filtered);
-    });
-
     // Database search button
     searchDatabaseBtn.addEventListener('click', () => {
       const query = searchInput.value.trim();
-      searchDatabase(query);
-    });
-
-    // Enter key to search database from either input
-    searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        const query = searchInput.value.trim();
-        searchDatabase(query);
+      if (query) {
+        searchDatabase(query, currentLanguage);
       }
     });
 
-    languageInput.addEventListener('keypress', (e) => {
+    // Enter key to search database
+    searchInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         const query = searchInput.value.trim();
-        searchDatabase(query);
+        if (query) {
+          searchDatabase(query, currentLanguage);
+        }
       }
     });
 
@@ -643,14 +577,24 @@
         btn.classList.add('active');
         currentCategory = btn.dataset.category;
         searchInput.value = '';
-        languageInput.value = '';
-        fetchMovies(currentCategory);
+        discoverMovies(currentCategory, currentLanguage);
+      });
+    });
+
+    // Language switching
+    languageBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        languageBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentLanguage = btn.dataset.language;
+        searchInput.value = '';
+        discoverMovies(currentCategory, currentLanguage);
       });
     });
 
     // Initial load
     if (apiKey) {
-      fetchMovies(currentCategory);
+      discoverMovies(currentCategory, currentLanguage);
     } else {
       loadingDiv.innerHTML = '⚠️ Please add your TMDb API key to the script';
     }
