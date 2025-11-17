@@ -267,7 +267,10 @@
     <h1>🎬 Movie Database</h1>
     <div class="controls">
       <div class="search-box">
-        <input type="text" id="searchInput" placeholder="🔍 Search movies..." />
+        <input type="text" id="searchInput" placeholder="🔍 Search movie title..." />
+      </div>
+      <div class="search-box">
+        <input type="text" id="languageInput" placeholder="🌍 Language (e.g., Telugu, Malayalam, Tamil)..." />
         <button class="search-database-btn" id="searchDatabaseBtn">Search Database</button>
       </div>
       <div class="filter-buttons">
@@ -292,9 +295,57 @@
     const movieContainer = document.getElementById('movies');
     const loadingDiv = document.getElementById('loading');
     const searchInput = document.getElementById('searchInput');
+    const languageInput = document.getElementById('languageInput');
     const searchDatabaseBtn = document.getElementById('searchDatabaseBtn');
     const searchInfo = document.getElementById('searchInfo');
     const categoryBtns = document.querySelectorAll('[data-category]');
+
+    // Language code mapping for common languages
+    const languageMap = {
+      'telugu': 'te',
+      'malayalam': 'ml',
+      'tamil': 'ta',
+      'hindi': 'hi',
+      'kannada': 'kn',
+      'bengali': 'bn',
+      'marathi': 'mr',
+      'gujarati': 'gu',
+      'punjabi': 'pa',
+      'urdu': 'ur',
+      'english': 'en',
+      'spanish': 'es',
+      'french': 'fr',
+      'german': 'de',
+      'italian': 'it',
+      'japanese': 'ja',
+      'korean': 'ko',
+      'chinese': 'zh',
+      'portuguese': 'pt',
+      'russian': 'ru',
+      'arabic': 'ar',
+      'turkish': 'tr',
+      'thai': 'th',
+      'vietnamese': 'vi',
+      'indonesian': 'id',
+      'malay': 'ms',
+      'persian': 'fa',
+      'polish': 'pl',
+      'dutch': 'nl',
+      'swedish': 'sv',
+      'norwegian': 'no',
+      'danish': 'da',
+      'finnish': 'fi'
+    };
+
+    // Function to get language code from input
+    function getLanguageCode(input) {
+      if (!input) return '';
+      const normalized = input.toLowerCase().trim();
+      // Check if it's already a 2-letter code
+      if (normalized.length === 2) return normalized;
+      // Check if it's in our language map
+      return languageMap[normalized] || '';
+    }
 
     // Fetch movies from TMDb
     async function fetchMovies(category = 'popular') {
@@ -369,8 +420,10 @@
 
     // Search entire TMDb database
     async function searchDatabase(query) {
-      if (!query.trim()) {
-        alert('Please enter a search term');
+      const languageQuery = languageInput.value.trim();
+      
+      if (!query.trim() && !languageQuery) {
+        alert('Please enter a movie title or language to search');
         return;
       }
 
@@ -380,16 +433,37 @@
         searchInfo.style.display = 'none';
         isSearchMode = true;
         
-        const searchURL = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&language=en-US&query=${encodeURIComponent(query)}&page=1`;
+        let searchURL = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&language=en-US&page=1`;
+        
+        // Add movie title query if provided
+        if (query.trim()) {
+          searchURL += `&query=${encodeURIComponent(query)}`;
+        }
+        
+        // Add language filter if provided
+        const languageCode = getLanguageCode(languageQuery);
+        if (languageCode) {
+          searchURL += `&with_original_language=${languageCode}`;
+        }
+        
         const res = await fetch(searchURL);
         const data = await res.json();
         
+        let searchDescription = '';
+        if (query.trim() && languageQuery) {
+          searchDescription = `"${query}" in ${languageQuery}`;
+        } else if (query.trim()) {
+          searchDescription = `"${query}"`;
+        } else if (languageQuery) {
+          searchDescription = `movies in ${languageQuery}`;
+        }
+        
         searchInfo.style.display = 'block';
-        searchInfo.textContent = `🔍 Found ${data.total_results} results for "${query}" in the entire database`;
+        searchInfo.textContent = `🔍 Found ${data.total_results} results for ${searchDescription}`;
         
         if (data.results.length === 0) {
           loadingDiv.style.display = 'none';
-          movieContainer.innerHTML = '<div class="no-results">No movies found in the database</div>';
+          movieContainer.innerHTML = `<div class="no-results">No movies found${languageCode ? '. Try entering the language name in English (e.g., Telugu, Malayalam, Tamil)' : ''}</div>`;
           return;
         }
         
@@ -544,18 +618,21 @@
     // Database search button
     searchDatabaseBtn.addEventListener('click', () => {
       const query = searchInput.value.trim();
-      if (query) {
+      searchDatabase(query);
+    });
+
+    // Enter key to search database from either input
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const query = searchInput.value.trim();
         searchDatabase(query);
       }
     });
 
-    // Enter key to search database
-    searchInput.addEventListener('keypress', (e) => {
+    languageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         const query = searchInput.value.trim();
-        if (query) {
-          searchDatabase(query);
-        }
+        searchDatabase(query);
       }
     });
 
@@ -566,6 +643,7 @@
         btn.classList.add('active');
         currentCategory = btn.dataset.category;
         searchInput.value = '';
+        languageInput.value = '';
         fetchMovies(currentCategory);
       });
     });
